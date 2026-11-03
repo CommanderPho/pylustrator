@@ -19,6 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Pylustrator. If not, see <http://www.gnu.org/licenses/>
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, List, Optional, Tuple, Any, Sequence, cast
 from packaging import version
 from numpy.typing import NDArray

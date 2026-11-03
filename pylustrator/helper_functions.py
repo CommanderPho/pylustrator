@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Pylustrator. If not, see <http://www.gnu.org/licenses/>
 
-from __future__ import division
+from __future__ import annotations, division
 import matplotlib.pyplot as plt
 import numpy as np
 from .parse_svg import svgread
