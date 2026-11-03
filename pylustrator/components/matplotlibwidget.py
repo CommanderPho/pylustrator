@@ -32,6 +32,8 @@ Derived from 'embedding_in_pyqt4.py':
 Copyright © 2005 Florent Rougon, 2006 Darren Dale
 """
 
+from __future__ import annotations
+
 __version__ = "1.0.0"
 
 import time
