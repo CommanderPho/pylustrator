@@ -12,12 +12,15 @@ proxy function/object.
 NOTE: adapted for pylustrator to be Python3 compatible
 
 """
-import sys as _sys
+
 import gc as _gc
 import types as _types
 import inspect as _inspect
 
-_WRAPPER_TYPES = (type(object.__init__), type(object().__init__),)
+_WRAPPER_TYPES = (
+    type(object.__init__),
+    type(object().__init__),
+)
 
 # deactivated closure support as this code does not work for python3
 """
@@ -30,7 +33,9 @@ def proxy0(data):
 _CELLTYPE = int  # type(proxy0(None).func_closure[0])
 """
 
-class PyjackException(Exception): pass
+
+class PyjackException(Exception):
+    pass
 
 
 def connect(fn, proxyfn):
@@ -58,26 +63,29 @@ def connect(fn, proxyfn):
         return _PyjackFuncCode(fn, proxyfn)._fn
     elif issubclass(fn_type, _types.MethodType):
         return _PyjackFuncCode(fn.im_func, proxyfn)._fn
-    elif issubclass(fn_type, (_types.BuiltinFunctionType,
-                              _types.BuiltinMethodType,
-                              type)):
+    elif issubclass(
+        fn_type, (_types.BuiltinFunctionType, _types.BuiltinMethodType, type)
+    ):
         return _PyjackFuncBuiltin(fn, proxyfn)
-    elif _sys.version_info < (2, 5) and issubclass(fn_type, type(file)):
-        # in python 2.4, open is of type file, not :class:`types.FunctionType`
-        return _PyjackFuncBuiltin(fn, proxyfn)
+    # elif _sys.version_info < (2, 5) and issubclass(fn_type, type(file)):
+    #    # in python 2.4, open is of type file, not :class:`types.FunctionType`
+    #    return _PyjackFuncBuiltin(fn, proxyfn)
     elif issubclass(fn_type, _WRAPPER_TYPES):
         raise PyjackException("Wrappers not supported. Make a concrete fn.")
-    elif isinstance(getattr(fn, '__call__', None), _types.MethodType):
+    elif isinstance(getattr(fn, "__call__", None), _types.MethodType):
         _PyjackFuncCode(fn.__call__.im_func, proxyfn)
 
         def restore():
             fn.__call__.im_func.restore()
-            delattr(fn, 'restore')
+            delattr(fn, "restore")
 
         fn.restore = restore
         return fn
     else:
-        bundle = (fn, fn_type,)
+        bundle = (
+            fn,
+            fn_type,
+        )
         raise PyjackException("fn %r of type '%r' not supported" % bundle)
 
 
@@ -150,20 +158,18 @@ def replace_all_refs(org_obj, new_obj):
 
     _gc.collect()
 
-    hit = False
+    # hit = False
     for referrer in _gc.get_referrers(org_obj):
-
         # FRAMES -- PASS THEM UP
         if isinstance(referrer, _types.FrameType):
             continue
 
         # DICTS
         if isinstance(referrer, dict):
-
             cls = None
 
             # THIS CODE HERE IS TO DEAL WITH DICTPROXY TYPES
-            if '__dict__' in referrer and '__weakref__' in referrer:
+            if "__dict__" in referrer and "__weakref__" in referrer:
                 for cls in _gc.get_referrers(referrer):
                     if _inspect.isclass(cls) and cls.__dict__ == referrer:
                         break
@@ -171,14 +177,14 @@ def replace_all_refs(org_obj, new_obj):
             for key, value in referrer.items():
                 # REMEMBER TO REPLACE VALUES ...
                 if value is org_obj:
-                    hit = True
+                    # hit = True
                     value = new_obj
                     referrer[key] = value
                     if cls:  # AGAIN, CLEANUP DICTPROXY PROBLEM
                         setattr(cls, key, new_obj)
                 # AND KEYS.
                 if key is org_obj:
-                    hit = True
+                    # hit = True
                     del referrer[key]
                     referrer[new_obj] = value
 
@@ -186,17 +192,23 @@ def replace_all_refs(org_obj, new_obj):
         elif isinstance(referrer, list):
             for i, value in enumerate(referrer):
                 if value is org_obj:
-                    hit = True
+                    # hit = True
                     referrer[i] = new_obj
 
         # SETS
         elif isinstance(referrer, set):
             referrer.remove(org_obj)
             referrer.add(new_obj)
-            hit = True
+            # hit = True
 
         # TUPLE, FROZENSET
-        elif isinstance(referrer, (tuple, frozenset,)):
+        elif isinstance(
+            referrer,
+            (
+                tuple,
+                frozenset,
+            ),
+        ):
             new_tuple = []
             for obj in referrer:
                 if obj is org_obj:
@@ -206,7 +218,7 @@ def replace_all_refs(org_obj, new_obj):
             replace_all_refs(referrer, type(referrer)(new_tuple))
 
         # CELLTYPE (deactivated as it makes problems im Python3)
-        #elif isinstance(referrer, _CELLTYPE):
+        # elif isinstance(referrer, _CELLTYPE):
         #    def proxy0(data):
         #        def proxy1(): return data
 
@@ -219,26 +231,30 @@ def replace_all_refs(org_obj, new_obj):
         # FUNCTIONS
         elif isinstance(referrer, _types.FunctionType):
             localsmap = {}
-            for key in ['func_code', 'func_globals', 'func_name',
-                        'func_defaults', 'func_closure']:
+            for key in [
+                "func_code",
+                "func_globals",
+                "func_name",
+                "func_defaults",
+                "func_closure",
+            ]:
                 orgattr = getattr(referrer, key)
                 if orgattr is org_obj:
-                    localsmap[key.split('func_')[-1]] = new_obj
+                    localsmap[key.split("func_")[-1]] = new_obj
                 else:
-                    localsmap[key.split('func_')[-1]] = orgattr
-            localsmap['argdefs'] = localsmap['defaults']
-            del localsmap['defaults']
+                    localsmap[key.split("func_")[-1]] = orgattr
+            localsmap["argdefs"] = localsmap["defaults"]
+            del localsmap["defaults"]
             newfn = _types.FunctionType(**localsmap)
             replace_all_refs(referrer, newfn)
 
         # OTHER (IN DEBUG, SEE WHAT IS NOT SUPPORTED).
         else:
             # debug:
-            import sys
             # print(type(referrer), file=sys.stderr)
             pass
 
-    #if hit is False:
+    # if hit is False:
     #    raise AttributeError("Object '%r' not found" % org_obj)
 
     return org_obj
@@ -251,29 +267,30 @@ def _get_self():
     global _func_code_map
 
     frame = _inspect.currentframe()
-    code = frame.f_back.f_code
+    code = frame.f_back.f_code  # ty:ignore[possibly-missing-attribute]
     return _func_code_map[code]
 
 
-class _PyjackFunc(object): pass
+class _PyjackFunc(object):
+    pass
 
 
 class _PyjackFuncCode(_PyjackFunc):
-
     def __init__(self, fn, proxyfn):
         global _func_code_map
 
         self._fn, self._proxyfn = fn, proxyfn
 
         def proxy(*args, **kwargs):
-            import pyjack
+            import pyjack  # ty:ignore[unresolved-import]
+
             self = pyjack._get_self()
             return self._process_fn(args, kwargs)
 
-        _func_code_map[proxy.func_code] = self
+        _func_code_map[proxy.func_code] = self  # ty:ignore[unresolved-attribute]
         self._org_func_code = fn.func_code
-        self._proxy_func_code = proxy.func_code
-        fn.func_code = proxy.func_code
+        self._proxy_func_code = proxy.func_code  # ty:ignore[unresolved-attribute]
+        fn.func_code = proxy.func_code  # ty:ignore[unresolved-attribute]
 
         fn.restore = self.restore
 
@@ -288,7 +305,6 @@ class _PyjackFuncCode(_PyjackFunc):
 
 
 class _PyjackFuncBuiltin(_PyjackFunc):
-
     def __init__(self, fn, proxyfn):
         self._fn = replace_all_refs(fn, self)
         self._proxyfn = proxyfn
@@ -300,15 +316,17 @@ class _PyjackFuncBuiltin(_PyjackFunc):
         try:
             return getattr(self._fn, attr)
         except AttributeError:
-            bundle = (self._fn, attr,)
+            bundle = (
+                self._fn,
+                attr,
+            )
             raise AttributeError("function %r has no attr '%s'" % bundle)
 
     def restore(self):
         replace_all_refs(self, self._fn)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import doctest
 
     doctest.testmod(optionflags=524)
-

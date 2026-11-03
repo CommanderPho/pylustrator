@@ -25,7 +25,8 @@ from matplotlib.axis import Axis
 
 
 class Dummy:
-    """ a dummy object that provides dummy attributes, dummy items and dummy returns """
+    """a dummy object that provides dummy attributes, dummy items and dummy returns"""
+
     def __getattr__(self, item):
         return Dummy()
 
@@ -37,11 +38,12 @@ class Dummy:
 
 
 class SaveList(list):
-    """ a list that returns dummy objects when an invalid item is requested """
+    """a list that returns dummy objects when an invalid item is requested"""
+
     def __init__(self, target):
         list.__init__(self, target)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item):  # ty:ignore[invalid-method-override]
         try:
             return list.__getitem__(self, item)
         except IndexError:
@@ -49,7 +51,8 @@ class SaveList(list):
 
 
 class SaveDict(dict):
-    """ a dictionary that returns dummy objects when an invalid item is requested """
+    """a dictionary that returns dummy objects when an invalid item is requested"""
+
     def __init__(self, target):
         dict.__init__(self, target)
 
@@ -61,11 +64,12 @@ class SaveDict(dict):
 
 
 class SaveTuple(tuple):
-    """ a tuple that returns dummy objects when an invalid item is requested """
-    def __init__(self, target):
-        tuple.__init__(self, target)
+    """a tuple that returns dummy objects when an invalid item is requested"""
 
-    def __getitem__(self, item):
+    def __init__(self, target):
+        tuple.__init__(self, target)  # ty:ignore[too-many-positional-arguments]
+
+    def __getitem__(self, item):  # ty:ignore[invalid-method-override]
         try:
             return tuple.__getitem__(self, item)
         except IndexError:
@@ -73,7 +77,8 @@ class SaveTuple(tuple):
 
 
 class SaveListDescriptor:
-    """ a descriptor that wraps the target value with a SaveList, SaveDict or SaveTuple """
+    """a descriptor that wraps the target value with a SaveList, SaveDict or SaveTuple"""
+
     def __init__(self, variable_name):
         self.variable_name = variable_name
 
@@ -84,11 +89,11 @@ class SaveListDescriptor:
             value = SaveDict(value)
         if isinstance(value, tuple):
             value = SaveTuple(value)
-        setattr(instance, "_pylustrator_"+self.variable_name, value)
+        setattr(instance, "_pylustrator_" + self.variable_name, value)
 
     def __get__(self, instance, owner):
         try:
-            return getattr(instance, "_pylustrator_"+self.variable_name)
+            return getattr(instance, "_pylustrator_" + self.variable_name)
         except AttributeError:
             if self.variable_name in instance.__dict__:
                 return instance.__dict__[self.variable_name]
@@ -97,35 +102,38 @@ class SaveListDescriptor:
 
 
 def get_axes(self):
-    """ a function that returns the axes of a figure as a SaveList """
+    """a function that returns the axes of a figure as a SaveList"""
     return SaveList(self._axstack.as_list())
 
 
 def return_save_list(func):
-    """ a decorator to wrap the output of a function as a SaveList """
+    """a decorator to wrap the output of a function as a SaveList"""
+
     def wrap(*args, **kwargs):
         return SaveList(func(*args, **kwargs))
+
     return wrap
 
 
 def swallow_get_exceptions():
-    """ replace lists with lists that return dummy objects when items are not present.
-        this is to ensure that the pylustrator generated code does not fail, even if the user removes some elements
-        from the figure.
+    """replace lists with lists that return dummy objects when items are not present.
+    this is to ensure that the pylustrator generated code does not fail, even if the user removes some elements
+    from the figure.
     """
-    Figure._get_axes = get_axes
-    Figure.axes = property(fget=get_axes)
-    Figure.ax_dict = SaveListDescriptor("ax_dict")
-    _AxesBase.texts = SaveListDescriptor("texts")
-    _AxesBase.lines = SaveListDescriptor("lines")
-    _AxesBase.patches = SaveListDescriptor("patches")
+    Figure._get_axes = get_axes  # ty:ignore[unresolved-attribute]
+    Figure.axes = property(fget=get_axes)  # ty:ignore[invalid-assignment]
+    Figure.ax_dict = SaveListDescriptor("ax_dict")  # ty:ignore[unresolved-attribute]
+    _AxesBase.texts = SaveListDescriptor("texts")  # ty:ignore[invalid-assignment]
+    _AxesBase.lines = SaveListDescriptor("lines")  # ty:ignore[invalid-assignment]
+    _AxesBase.patches = SaveListDescriptor("patches")  # ty:ignore[invalid-assignment]
     Axis.get_minor_ticks = return_save_list(Axis.get_minor_ticks)
     Axis.get_major_ticks = return_save_list(Axis.get_major_ticks)
-    l = _AxesBase.get_legend
+    get_legend_orig = _AxesBase.get_legend
+
     def get_legend(*args, **kwargs):
-        leg = l(*args, **kwargs)
+        leg = get_legend_orig(*args, **kwargs)
         if leg is None:
             return Dummy()
         return leg
 
-    _AxesBase.get_legend = get_legend
+    _AxesBase.get_legend = get_legend  # ty:ignore[invalid-assignment]
