@@ -24,6 +24,8 @@ This file implements pylustrator for jupyter notebooks. Basically it provides an
 the file is instead of a normal file a jupyter notebook and redirects writes accordingly.
 """
 
+from __future__ import annotations
+
 
 def setJupyterCellText(text: str):
     """the function replaces the text in the current jupyter cell with the given text"""

@@ -21,6 +21,8 @@
 
 """Colormap"""
 
+from __future__ import annotations
+
 import numpy as np
 from typing import Sequence, Union, List, Optional
 from matplotlib.colors import Colormap, ListedColormap, to_rgb
